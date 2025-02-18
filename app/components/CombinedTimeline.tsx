@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import Timeline from "./Timeline"
 import FilterBar from "./FilterBar"
+import DecadeJump from "./DecadeJump"
 import { Button } from "@/components/ui/button"
 import { humanMilestones, categoryGroups as humanCategoryGroups } from "../../data/humanMilestones"
 import {
@@ -45,8 +46,9 @@ const timelineInfo: Record<TimelineType, TimelineInfo> = {
 }
 
 export default function CombinedTimeline() {
-  const [timelineType, setTimelineType] = useState<TimelineType>("artTechnology")
+  const [timelineType, setTimelineType] = useState<TimelineType>("all")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [selectedDecade, setSelectedDecade] = useState<number | null>(null)
 
   const handleToggleCategory = (category: string) => {
     setSelectedCategories((prev) =>
@@ -77,7 +79,7 @@ export default function CombinedTimeline() {
       case "internetHistory":
         return milestones
       default:
-        return humanMilestones
+        return allMilestones
     }
   }
 
@@ -107,13 +109,34 @@ export default function CombinedTimeline() {
       case "internetHistory":
         return milestoneCategoryGroups
       default:
-        return humanCategoryGroups
+        return consolidatedCategoryGroups
     }
   }
 
   const filteredMilestones = getCurrentMilestones().filter((milestone) => {
-    return selectedCategories.length === 0 || selectedCategories.some((cat) => milestone.categories.includes(cat))
+    const categoryMatch =
+      selectedCategories.length === 0 || selectedCategories.some((cat) => milestone.categories.includes(cat))
+    const decadeMatch = selectedDecade === null || Math.floor(milestone.year / 10) * 10 === selectedDecade
+    const is1900s = milestone.year >= 1900 && milestone.year < 2000
+    return categoryMatch && decadeMatch && (selectedDecade === null || is1900s)
   })
+
+  const decades = useMemo(() => {
+    const allYears = getCurrentMilestones()
+      .filter((m) => m.year >= 1900 && m.year < 2000)
+      .map((m) => m.year)
+    const decadeSet = new Set<number>()
+
+    for (const year of allYears) {
+      decadeSet.add(Math.floor(year / 10) * 10)
+    }
+
+    return Array.from(decadeSet).sort((a, b) => a - b)
+  }, [getCurrentMilestones])
+
+  const handleDecadeSelect = useCallback((decade: number) => {
+    setSelectedDecade(decade)
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -153,13 +176,16 @@ export default function CombinedTimeline() {
       <p className="text-center text-gray-300 mb-8 md:mb-12 max-w-2xl mx-auto text-sm md:text-base">
         {timelineInfo[timelineType].description}
       </p>
-      <FilterBar
-        categoryGroups={getCurrentCategoryGroups()}
-        selectedCategories={selectedCategories}
-        onToggleCategory={handleToggleCategory}
-        onClearAll={handleClearAll}
-        filterText={timelineInfo[timelineType].filterText}
-      />
+      <div className="flex justify-between items-center mb-4">
+        <FilterBar
+          categoryGroups={getCurrentCategoryGroups()}
+          selectedCategories={selectedCategories}
+          onToggleCategory={handleToggleCategory}
+          onClearAll={handleClearAll}
+          filterText={timelineInfo[timelineType].filterText}
+        />
+        <DecadeJump decades={decades} onDecadeSelect={handleDecadeSelect} />
+      </div>
       <Timeline
         milestones={filteredMilestones}
         filteredCategories={selectedCategories}
