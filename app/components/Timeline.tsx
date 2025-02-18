@@ -1,19 +1,29 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import MilestoneCard from "./MilestoneCard"
 import InfiniteScroll from "./InfiniteScroll"
 import { motion, AnimatePresence } from "framer-motion"
 
+interface Milestone {
+  id: string
+  year: number
+  title: string
+  description: string
+  categories: string[]
+  source?: string
+}
+
 interface TimelineProps {
-  milestones: any[] // Use 'any' to accommodate different milestone types
+  milestones: Milestone[]
   filteredCategories: string[]
   onCategoryClick: (category: string) => void
+  selectedDecade: number | null
 }
 
 const ITEMS_PER_PAGE = 50
 
-function groupMilestonesByEra(milestones: any[]): [string, any[]][] {
+function groupMilestonesByEra(milestones: Milestone[]): [string, Milestone[]][] {
   const grouped = milestones.reduce(
     (acc, milestone) => {
       let era: string
@@ -36,7 +46,7 @@ function groupMilestonesByEra(milestones: any[]): [string, any[]][] {
       acc[era].push(milestone)
       return acc
     },
-    {} as Record<string, any[]>,
+    {} as Record<string, Milestone[]>,
   )
 
   return Object.entries(grouped)
@@ -47,7 +57,7 @@ function groupMilestonesByEra(milestones: any[]): [string, any[]][] {
     .map(([era, milestones]) => [era, milestones.sort((a, b) => a.year - b.year)])
 }
 
-export default function Timeline({ milestones, filteredCategories, onCategoryClick }: TimelineProps) {
+export default function Timeline({ milestones, filteredCategories, onCategoryClick, selectedDecade }: TimelineProps) {
   const [displayCount, setDisplayCount] = useState(ITEMS_PER_PAGE)
 
   const sortedMilestones = useMemo(() => [...milestones].sort((a, b) => a.year - b.year), [milestones])
@@ -59,6 +69,15 @@ export default function Timeline({ milestones, filteredCategories, onCategoryCli
   const loadMore = useCallback(() => {
     setDisplayCount((prevCount) => prevCount + ITEMS_PER_PAGE)
   }, [])
+
+  useEffect(() => {
+    if (selectedDecade !== null) {
+      const element = document.getElementById(`decade-${selectedDecade}`)
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+    }
+  }, [selectedDecade])
 
   return (
     <div className="relative">
@@ -73,6 +92,7 @@ export default function Timeline({ milestones, filteredCategories, onCategoryCli
           {groupedMilestones.map(([era, eraMilestones], eraIndex) => (
             <div key={era} className="relative">
               <motion.h2
+                id={`decade-${era.startsWith("19") ? Number.parseInt(era.slice(0, 4)) : era}`}
                 className="text-2xl font-bold mb-8 text-center md:text-left bg-gradient-to-r from-blue-400 to-purple-400 text-transparent bg-clip-text"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
